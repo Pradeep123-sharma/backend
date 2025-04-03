@@ -1,0 +1,8 @@
+<!-- Here Those files will come where prettier should not be used. -->
+/.vscode
+/node modules
+./dist
+
+*.env
+.env
+.env.*
