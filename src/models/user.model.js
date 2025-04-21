@@ -75,10 +75,10 @@ userSchema.methods.generateAccessToken = function() {
     // .sign method is used to generate tokens. It uses parameters like payload or data, access token secret and expiry
     jwt.sign(
         {
-        _id: this._id,
-        email: this.email,
-        username: this.username,
-        fullName: this.fullName
+            _id: this._id,
+            email: this.email,
+            username: this.username,
+            fullName: this.fullName
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
