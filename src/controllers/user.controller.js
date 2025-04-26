@@ -25,7 +25,7 @@ const registerUser = asyncHandler( async (req, res)=>{
     }
 
     // [c.] Check if user exists or not
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ username }, { email }]
     }) /* So here we wil check with either username or email but if we want to check for user existence by both username and email then we can use operators like and, or, nor by using $ sign. */
 

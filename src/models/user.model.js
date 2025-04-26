@@ -1,5 +1,6 @@
 // Here we are directly importing mongoose and its schema so that we don't have to write mongoose.Schema.
 import mongoose, {Schema} from "mongoose";
+import bcrypt from "bcrypt";
 
 const userSchema = new Schema(
     {
