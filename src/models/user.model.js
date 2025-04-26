@@ -60,7 +60,7 @@ userSchema.pre("save", async function (next) {
     }
 
     /* Now since to encrypt passwrd we use bcrypt.hash and it takes 2 parameters 1 is password and 2 is salt round. Here we will give number of rounds the hashing algo is applied to make passwords more secure(but slower to compute).They make each hash unique even if 2 users have same password and slow down brute-force attacks. */
-    this.password = bcrypt.hash(this.password, 10);
+    this.password = await bcrypt.hash(this.password, 10);
     next();
 })
 
