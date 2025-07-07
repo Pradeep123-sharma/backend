@@ -9,13 +9,13 @@ const registerUser = asyncHandler( async (req, res)=>{
     // [a.] Get user details
     /* Here we are destructuring the object data that is coming from frontend. */
     const {fullName, email, username, password} = req.body
-    console.log("email:", email); //checking if the data is coming
+    // console.log("email:", email); //checking if the data is coming
 
     // [b.] Validation
     
     /* Since we have to check for all fields that if they are empty or not. So instead of writing every time if statement we can write this in another way given below.*/
     if (
-        [fullName, email, username, password].some((fields)=> fields?.trim() === "" ) //So here trim function removes any extra spaces and
+        [fullName, email, username, password].some((fields)=> fields?.trim() === "" ) //So here trim function removes any extra spaces.
     ) {
         throw new ApiError(400, "All fields are required.")
     }
@@ -36,7 +36,12 @@ const registerUser = asyncHandler( async (req, res)=>{
     // [d.] Check for images
     /* Here we are getting the path of a file. Because we know that we have told the multer that add the file in given destination as specified(in temp folder) so that's why we can get the path of file. */
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    /* here if we dont send coverImage then it will be undefined so here we cant use optional chaining. We will use another alternatve.
+        const coverImageLocalPath = req.files?.coverImage[0]?.path;   */
+    let coverImageLocalPath;
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path; // So here we are checking if coverImage is present or not and then getting the path.
+    }
     
     if (! avatarLocalPath) {
         throw new ApiError(400, "Avatar file is required.");
@@ -44,7 +49,9 @@ const registerUser = asyncHandler( async (req, res)=>{
 
     // [e.] Upload on cloudinary
     const avatar = await uploadOnCloudinary(avatarLocalPath);
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    const coverImage = coverImageLocalPath
+    ? await uploadOnCloudinary(coverImageLocalPath)
+    : null;
 
     // Checking if avatar is uploaded successfully on cloudinary
     if (! avatar) {
@@ -55,7 +62,7 @@ const registerUser = asyncHandler( async (req, res)=>{
     const user = await User.create({
         fullName,
         avatar: avatar.url, // Since avatar will get whole response so we will extract url only.
-        coverImage: coverImage?.url, /* Since we have not put any restrictions on coverImage so it may be present or not. */
+        coverImage: coverImage?.url || "", /* Since we have not put any restrictions on coverImage so it may be present or not. */
         email,
         password,
         username: username.toLowerCase()
