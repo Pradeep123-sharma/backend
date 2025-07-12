@@ -2,7 +2,37 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asynchandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import { ApiResponse } from "../utils/ApiResponse.js"
+import { ApiResponse } from "../utils/ApiResponse.js";
+
+// [d.] Generating access and refresh token
+/* We dont need asynchandler because we are not making any web request. This is a only a nirmal internal method. Also it will take userid as a parameter as we have verified the user. */
+const generateAccessAndRefreshTokens = async (userId) =>{
+    try {
+        // Finding the user for whom access and refresh tokens will be generated
+        const user = await User.findById(userId);
+        // if (!user) {
+        //     throw new ApiError(404, "User not found for token generation.");
+        // } 
+
+        /* => Calling generateAccessToken and generateRefreshToken methods from user.model. 
+        => Humne yaha 'user.' karke function isliye call kiya hai kyunki agar hum asai hi simply call kar rhe hai to refrence error aa ja rha hai. 
+        => Error is coming because 'generateAccessToken' and 'generateRefreshToken' are instance methods on the user document, not standalone functions.You should call them on the user object you fetched from the database.*/ 
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        // Now we have to save new refresh token in our database.To do so first we have to add the value of refresh token in 'user' object.
+        user.refreshToken = refreshToken;
+        /* Now .save is a mongodb method. when we try to save it then mongoose model gets kickin which means saving,validating and updating a document in MongoDB. So we require password again. So to overcome this problem we pass another parameter also i.e. validateBeforeSave and set it to false. */
+        await user.save({validateBeforeSave :false});
+        
+        return {accessToken, refreshToken};
+
+    } catch (error) {
+        /* console.error("Token generation error:", error); //For checking why tokens are not generating. Gives actual error */
+        throw new ApiError(500, "Something went wrong while generating access and refresh tokens.");
+    }    
+} 
+
 
 /* Now here first we call our asyncHandler fun and make it a high order fun and inside it we make our function that is async and then we will directly send response in json format with status code and message. */
 const registerUser = asyncHandler( async (req, res)=>{
@@ -81,4 +111,91 @@ const registerUser = asyncHandler( async (req, res)=>{
     )
 } )
 
-export { registerUser };
+// **************************************************************************************************************************************************
+// Making logic for USER LOGIN 
+const loginUser = asyncHandler( async (req, res) => {
+    // [a.] Get dta from request body and check for it
+    const {email, username, password} = req.body;
+    
+    if (!username && !email) {
+        throw new ApiError(400, "Username or Email is required.");
+    }
+    /* Ye tab ke liye hai jab hume ya to phir email ya username se login kar rhe hai.
+    if (!(username || email)) {
+        throw new ApiError(400, "Username or Email is required.");
+    } */
+
+    // [b.] Find the user if it is registered 
+    const user = await User.findOne({
+        $or: [{username}, {email}]
+    })
+    
+    if (!user) {
+        throw new ApiError(404, "User is not registered.");
+    }
+
+    // [c.] Check password
+    const isPasswordValid = await user.isPasswordCorrect(password);
+    if (!isPasswordValid) {
+        throw new ApiError(401, "Invalid User Credentials")
+    }
+
+    //[d.] Calling the method for generating acess and refresh tokens
+    const {accessToken, refreshToken}  = await generateAccessAndRefreshTokens(user._id);
+
+    // [e.] Send to user in cookies
+    // Updating our user with refreshtoken and removing password and refreshtoken from the response
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+    // For cookie
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    // Returning response
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser, accessToken, refreshToken /* Now here jab humne cookies mei set kar diye the accessToken and refreshToken to hum isme kyun bhj rhe hai. Yaha par hum vo case handle kar rhe hai jab user khud apni taraf se in tokens ko save karna chaha rha ho uska apna koi reason ho , vaise to ye good practice nhi hai lekin tab bhi. cookies to browser mein hi save ho rhe hai lekin hum ye response client ko de rhe hai islye hum yaha par bhi likh rhe hai. */
+            },
+            "User logged in successfully."
+        )
+    )
+})
+
+// **************************************************************************************************************************************************
+// Making logic for USER LOGOUT
+const logoutUser = asyncHandler(async(req, res) => {
+    /* Here we are using 'findByIdAndUpdate' method. Instead of using 'findById' and then refreshToken delete and then save and validate before false karna padega to hum sidhe hi ye method use kar rhe hai jaha par hum pehle id de rhe hai fir refresh token ko update kar denge. Saath hi mei hum isme new true bhi kar skte hai jisse updated values aaye reponse mein.*/
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set : {refreshToken : undefined} /* This is the operator of mongodb to update and set something so we have pass in form of object that is refreshToken and set it to undefined. */
+        },
+        {
+            new: true // In reponse we will get new updated value with refresh token undefined not the old one.
+        }
+    )
+
+    // For removing cookies
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    
+    // For clearing we have function from cookie-parser i.e. 'clearCookie()'
+    return res.status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json( new ApiResponse(200, {}, "User logged out successfully."))
+})
+
+export {
+     registerUser,
+     loginUser,
+     logoutUser 
+    };

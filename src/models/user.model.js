@@ -1,6 +1,7 @@
 // Here we are directly importing mongoose and its schema so that we don't have to write mongoose.Schema.
 import mongoose, {Schema} from "mongoose";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const userSchema = new Schema(
     {
@@ -74,7 +75,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 
 userSchema.methods.generateAccessToken = function() {
     // .sign method is used to generate tokens. It uses parameters like payload or data, access token secret and expiry
-    jwt.sign(
+    return jwt.sign(
         {
             _id: this._id,
             email: this.email,
@@ -89,7 +90,7 @@ userSchema.methods.generateAccessToken = function() {
 }
 
 userSchema.methods.generateRefreshToken = function(){
-    jwt.sign(
+    return jwt.sign(
         {
             _id: this._id
         },
