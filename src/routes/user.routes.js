@@ -1,5 +1,5 @@
 import {Router} from "express"
-import { loginUser, logoutUser, registerUser } from "../controllers/user.controller.js"
+import { loginUser, logoutUser, refreshAccessToken, registerUser } from "../controllers/user.controller.js"
 import { upload } from "../middlewares/multer.middleware.js"
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -27,7 +27,8 @@ router.route("/register").post(
 router.route("/login").post(loginUser);
 
 // Secured routes
-router.route("/logout").post(verifyJWT, logoutUser)
+router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/refresh-token").post(refreshAccessToken);
 
 /* Now the advantage of making such separate files is that suppose we have to write it for login so we don't need to import again and again users, we only have to write:
         router.route("login").post(login)
