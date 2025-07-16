@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asynchandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { jwt } from "jsonwebtoken";
 
 // [d.] Generating access and refresh token
 /* We dont need asynchandler because we are not making any web request. This is a only a nirmal internal method. Also it will take userid as a parameter as we have verified the user. */
@@ -111,7 +112,7 @@ const registerUser = asyncHandler( async (req, res)=>{
     )
 } )
 
-// **************************************************************************************************************************************************
+// ******************************************************************************************************************************************************************************
 // Making logic for USER LOGIN 
 const loginUser = asyncHandler( async (req, res) => {
     // [a.] Get dta from request body and check for it
@@ -167,7 +168,7 @@ const loginUser = asyncHandler( async (req, res) => {
     )
 })
 
-// **************************************************************************************************************************************************
+// ******************************************************************************************************************************************************************************
 // Making logic for USER LOGOUT
 const logoutUser = asyncHandler(async(req, res) => {
     /* Here we are using 'findByIdAndUpdate' method. Instead of using 'findById' and then refreshToken delete and then save and validate before false karna padega to hum sidhe hi ye method use kar rhe hai jaha par hum pehle id de rhe hai fir refresh token ko update kar denge. Saath hi mei hum isme new true bhi kar skte hai jisse updated values aaye reponse mein.*/
@@ -194,7 +195,7 @@ const logoutUser = asyncHandler(async(req, res) => {
     .json( new ApiResponse(200, {}, "User logged out successfully."))
 })
 
-// *************************************************************************************************************
+// ******************************************************************************************************************************************************************************
 // Making an endpoint to hit for refreshing refresh token
 const refreshAccessToken =  asyncHandler(async (req, res) => {
     // Getting refresh tokens from user
@@ -249,4 +250,4 @@ export {
      loginUser,
      logoutUser,
      refreshAccessToken 
-    };
+};
