@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asynchandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { jwt } from "jsonwebtoken";
+import { v2 as cloudinary } from "cloudinary";
 
 // [d.] Generating access and refresh token
 /* We dont need asynchandler because we are not making any web request. This is a only a nirmal internal method. Also it will take userid as a parameter as we have verified the user. */
@@ -318,10 +319,19 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Avatar file is missing !");
     }
 
+    // ASSIGNMENT = Create a fuction for deleting old avatar image
+    // Getting old avatar url form db
+    const currentUser = await User.findById(req.user?._id);
+    const oldAvatarUrl = currentUser?.avatar;
+    
+    if( ! oldAvatarUrl ){
+        throw new ApiError(401, "Error while getting the old avatar !");
+    }
+
     // Uploading on cloudinary
     const avatar = await uploadOnCloudinary(avatarLocalPath);
     if (! avatar.url) {
-        throw new ApiError(400, "Error while uploading on avatar !");
+        throw new ApiError(400, "Error while uploading an avatar !");
     }
 
     // Updating in db
@@ -330,10 +340,20 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
         {
             $set: {
                 avatar:avatar.url
-            }
+            },
         },
         { new : true  }
     ).select("-password")
+
+    // Deleting old image from cloudinary
+    try {
+        if ( oldAvatarUrl) {
+            const publicId = oldAvatarUrl
+            await cloudinary.uploader.destroy(publicId);
+        }
+    } catch (error) {
+        throw new ApiError(400, error?.message, "Cannot delete old avatar image !");
+    }
 
     // Returning response
     return res
@@ -375,6 +395,149 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     .json( new ApiResponse(200, user, "Updated cover image successfully."))
 })
 
+// **************************************************************************************************************************************************
+// Getting user details
+const getUserChannelProfile = asyncHandler( async ( req, res ) => {
+    // Getting username from url 
+    const {username} = req.params;
+    if (!username?.trim()) {
+        throw new ApiError(400, "Username is missiing !");
+    }
+
+    // Injecting our 1st aggregation pipeline
+    const channel = await User.aggregate([
+        {
+            // Matching username with the given username
+            $match: {
+                username: username?.toLowerCase()
+            }      
+        },
+        {
+            // Perform a join operation to find the no. of subscribers
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            // // Perform a join operation to find the no. of channels that user has subscribed
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            // Adding both the previous fields into our user model
+            $addFields: {
+                // To find subscribers count we need to use "$size" and give the field that you want to count
+                subscribersCount: {
+                    $size: "$subscribers" // Here we are using $ sign to indicate field becuse now "subscribers" has become a field.
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                // Checking if user has subscribed or not that channel
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]}, // To yaha par hum ye conditon laga rhe hai ki "req.user" se id niklakar dekho ki kya ye "subscribers" field mein hai ya nhi."
+                        then: true,
+                        else: false
+                    }
+                }                    
+            }
+        },
+        {
+            // Deciding what fields to show to frontend
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+                isSubscribed: 1,
+            }
+        }
+    ])
+
+    /* Try to do console log the channel
+           console.log(channel); */
+     
+    // Checking that if array has length(any elements in it) or not
+    if (! channel?.length) {
+        throw new ApiError(404, "Channel does not exists !");
+    }
+
+    // Returning response
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "User channel fetched sucesssfully.")
+    )
+})
+
+// **************************************************************************************************************************************************
+// Getting user's watch history
+const getWatchHistory = asyncHandler( async (req, res) => {
+    const user = await User.aggregate([
+        {
+            // First we will match with id
+            $match: {
+                // First converting the string into actual object id
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                // Sub Aggregation pipeline
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            /* Writing further more nested pipeline. You can write this pipeline in previous stage also but maybe the structue that we want in our document can't be achieve. " PLEASE TRY TO SEE WHAT HAPPENS WHEN YOU WRITE IN MORE PREVIOUS STAGE". */
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        // Improving the way of structure of array coming for owner lookup 
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            } // It will attach the first element of array with owner lookup.
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user[0].watchHistory, "User's watch history fetched successfully.")
+    )
+})
+
 export {
     registerUser,
     loginUser,
@@ -384,5 +547,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 };
