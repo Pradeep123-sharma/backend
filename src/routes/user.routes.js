@@ -53,7 +53,7 @@ router.route("/update-account").patch(verifyJWT, updateAccountDetails);
 // since we are uploading only single file that's why "upload.single("avatar")"
 router.route("/update-avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
 
-router.route("/update-cover-image").patch(verifyJWT, upload.single("/coverImage"), updateUserCoverImage);
+router.route("/update-cover-image").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
 
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
 
