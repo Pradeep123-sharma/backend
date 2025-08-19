@@ -21,6 +21,7 @@ app.use(cookieParser());
 import userRouter from "./routes/user.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 import videoRouter from "./routes/video.routes.js"
+import likeRouter from "./routes/like.routes.js"
 
 // Declaring routes
 // The best practice is that if we are using APIs then define it and also the version.
@@ -32,7 +33,7 @@ app.use("/api/v1/subscriptions", subscriptionRouter)
 
 app.use("/api/v1/videos", videoRouter)
 
-
+app.use("/api/v1/likes", likeRouter)
 
 
 export { app };
