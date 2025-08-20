@@ -18,10 +18,11 @@ app.use(cookieParser());
 
 
 // Routes import - We import here because of segregation and cleaner code.
-import userRouter from "./routes/user.routes.js";
-import subscriptionRouter from "./routes/subscription.routes.js";
+import userRouter from "./routes/user.routes.js"
+import subscriptionRouter from "./routes/subscription.routes.js"
 import videoRouter from "./routes/video.routes.js"
 import likeRouter from "./routes/like.routes.js"
+import playlistRouter from "./routes/playlist.routes.js"
 
 // Declaring routes
 // The best practice is that if we are using APIs then define it and also the version.
@@ -35,5 +36,6 @@ app.use("/api/v1/videos", videoRouter)
 
 app.use("/api/v1/likes", likeRouter)
 
+app.use("/api/v1/playlists", playlistRouter)
 
 export { app };
